@@ -1,47 +1,42 @@
-# Teste Técnico - Desenvolvedor
+# API de consulta de CEP
 
-## O problema
+API que consulta CEP em múltiplos provedores externos e devolve um contrato único,
+tolerando indisponibilidade e lentidão de qualquer um deles.
 
-Você precisa criar uma API que consulta CEP. Simples, certo?
+Enunciado do teste: [DESAFIO.md](DESAFIO.md) · Convenções de desenvolvimento: [AGENTS.md](AGENTS.md)
 
-Só que: você não controla as APIs externas. Elas caem, demoram, retornam erro. Seu serviço precisa continuar funcionando.
-
-## APIs disponíveis
-
-- ViaCEP: `https://viacep.com.br/ws/{cep}/json/`
-- BrasilAPI: `https://brasilapi.com.br/api/cep/v1/{cep}`
-
-## Requisitos
-
-### Endpoint
-`GET /cep/{cep}`
-
-### Comportamento esperado
-- Alterna entre as duas APIs (pode ser aleatório ou round-robin)
-- Se uma falhar, tenta a outra automaticamente
-- Retorna um contrato único, independente de qual API respondeu
-
-### O que queremos ver
-
-1. **Abstração** — Como você isola os providers externos? Se amanhã adicionarmos uma terceira API, o que muda no código?
-
-2. **Resiliência** — O que acontece quando uma API demora 30 segundos? E quando as duas estão fora?
-
-3. **Observabilidade** — Se der erro em produção, como a gente descobre o que aconteceu?
-
-4. **Tratamento de erros** — Erros diferentes devem ter tratamentos diferentes. Timeout não é a mesma coisa que 404.
+> **Status:** projeto inicializado. O endpoint `GET /cep/{cep}` ainda não foi implementado.
 
 ## Stack
 
-NestJS + TypeScript. Fora isso, use o que fizer sentido.
+NestJS 12 (ESM) · TypeScript 6 · Vitest · oxlint · Prettier
 
-## O que não estamos avaliando
+## Executando
 
-- Frontend
-- Banco de dados
-- Deploy
-- Cobertura de testes de 100%
+```bash
+npm install
+npm run start:dev        # http://localhost:3000 (ou $PORT)
+```
 
-## Como entregar
+## Scripts
 
-Fork este repositório, implemente. Retorne ao e-mail em que você recebeu o teste e encaminhe seu resultado por lá com o assunto **Teste Dev - Monest**.
+| script | o que faz |
+| --- | --- |
+| `npm run start:dev` | sobe a API em modo watch |
+| `npm run build` | compila para `dist/` |
+| `npm run start:prod` | executa o build |
+| `npm test` | testes unitários (`src/**/*.spec.ts`) |
+| `npm run test:e2e` | testes e2e (`test/**/*.e2e-spec.ts`) |
+| `npm run typecheck` | `tsc --noEmit` — o Vitest não checa tipos |
+| `npm run lint` | oxlint |
+| `npm run format` | Prettier |
+
+## Configuração
+
+| variável | default | descrição |
+| --- | --- | --- |
+| `PORT` | `3000` | porta HTTP da aplicação |
+
+## Contrato
+
+A ser documentado com a implementação do endpoint.
