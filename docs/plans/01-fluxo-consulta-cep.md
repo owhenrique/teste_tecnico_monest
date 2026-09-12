@@ -169,6 +169,7 @@ Controller, service e seletor não mudam.
   ou tipo de falha, e a porta muda junto.
 - **`fetch` global do Node** — sem dependência nova. Descartado `@nestjs/axios`/`HttpModule`
   enquanto não houver necessidade de interceptor ou retry.
+  **Revertido depois da implementação:** ver "Desvios da implementação", item 7.
 
 ## Ciclos de TDD
 
@@ -186,7 +187,7 @@ Um comportamento por ciclo (regra 1 do AGENTS.md), de dentro para fora:
 | 8 | `GET /cep/01001-000` responde `HttpStatus.BAD_REQUEST` | e2e |
 
 O ciclo 1 roda o `validate()` do class-validator direto sobre o DTO. O 2 usa um
-`CepProvider` falso; 3–4, provedores falsos; 5–6, `fetch` mockado. Os ciclos 7 e 8 sobem
+`CepProvider` falso; 3–4, provedores falsos; 5–6, `HttpService` mockado. Os ciclos 7 e 8 sobem
 a aplicação — e o 8 é o que prova que o `ValidationPipe` está de fato ligado à rota.
 
 ## Pendências a decidir antes de implementar
@@ -218,9 +219,14 @@ O que ficou diferente deste plano, e por quê:
    protege chamadores que não vêm do HTTP.
 6. **Nomes.** `lookup` → `findOne` na porta e no service; `FindCepParamsDto` →
    `GetCepParamsDto`.
+7. **`@nestjs/axios` no lugar do `fetch`.** A decisão original evitava a dependência até
+   haver interceptor ou retry; como os dois entram no plano 02, os adaptadores migraram
+   antes, para não serem reescritos duas vezes. O axios lança em status não-2xx, o que já
+   mudou o comportamento com CEP inexistente (ver a pendência abaixo).
 
 ## Pendência descoberta na implementação
 
-`GET /cep/99999999` responde **200 ou 500 conforme o provedor da vez**: o ViaCEP devolve
-`HTTP 200` com `{"erro": "true"}` e o adaptador estoura ao ler `body.cep`. É o argumento
-mais concreto a favor do plano 02.
+CEP inexistente termina em **500 pelos dois provedores**, por motivos diferentes: a
+BrasilAPI responde `404` e o axios lança; o ViaCEP responde `HTTP 200` com
+`{"erro": "true"}` e o adaptador estoura ao ler `data.cep`. O caso certo é `404`, e é o
+argumento mais concreto a favor do plano 02.

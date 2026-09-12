@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { HttpStatus, Injectable } from '@nestjs/common';
 
 import { CepProviderName } from '../enums/cep-provider-name.enum.js';
 import { Address } from '../interfaces/address.interface.js';
 import { CepProvider } from '../interfaces/cep-provider.interface.js';
+import { requestProvider } from '../utils/provider-request.js';
 
 /** Resposta da BrasilAPI, nos campos que o contrato único usa. */
 interface BrasilApiResponse {
@@ -17,19 +19,26 @@ interface BrasilApiResponse {
 export class BrasilApiAdapter implements CepProvider {
   readonly name = CepProviderName.BRASILAPI;
 
+  constructor(private readonly http: HttpService) {}
+
   async findOne(cep: string): Promise<Address> {
-    const response = await fetch(`https://brasilapi.com.br/api/cep/v1/${cep}`);
-    const body = (await response.json()) as BrasilApiResponse;
+    // A BrasilAPI responde 404 com `type: "service_error"` — "Todos os serviços de CEP
+    // retornaram erro". Tratamos como CEP inexistente, que é o caso comum. Limitação
+    // aceita: se os upstreams dela caírem, viramos 404 sem consultar o ViaCEP.
+    const data = await requestProvider<BrasilApiResponse>(
+      this.http,
+      this.name,
+      `https://brasilapi.com.br/api/cep/v1/${cep}`,
+      HttpStatus.NOT_FOUND,
+    );
 
     return {
-      cep: body.cep,
-      logradouro: body.street,
-      // A BrasilAPI não expõe complemento; o contrato mantém o campo para não variar
-      // de formato conforme o provedor que atendeu.
+      cep: data.cep,
+      logradouro: data.street,
       complemento: null,
-      bairro: body.neighborhood,
-      cidade: body.city,
-      estado: body.state,
+      bairro: data.neighborhood,
+      cidade: data.city,
+      estado: data.state,
     };
   }
 }

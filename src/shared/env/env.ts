@@ -1,6 +1,5 @@
 import { type Env, envSchema } from './env.schema.js';
 
-
 export function loadEnv(source: NodeJS.ProcessEnv): Env {
   const result = envSchema.safeParse(source);
 

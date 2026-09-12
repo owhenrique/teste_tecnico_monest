@@ -6,12 +6,12 @@ tolerando indisponibilidade e lentidão de qualquer um deles.
 Enunciado do teste: [DESAFIO.md](DESAFIO.md) · Convenções de desenvolvimento: [AGENTS.md](AGENTS.md)
 
 > **Status:** `GET /cep/{cep}` implementado, alternando entre ViaCEP e BrasilAPI em
-> round-robin. Ainda **sem tolerância a falha**: se o provedor da vez falhar, a exceção
-> sobe — não há fallback para o outro, timeout nem distinção entre tipos de erro.
+> round-robin, com fallback, timeout por provedor e circuit breaker. Falta log estruturado
+> por requisição (plano 03).
 
 ## Stack
 
-NestJS 12 (ESM) · TypeScript 6 · Zod · Vitest · oxlint · Prettier
+NestJS 12 (ESM) · TypeScript 6 · Axios (`@nestjs/axios`) · Zod · Vitest · oxlint · Prettier
 
 ## Executando
 
@@ -42,9 +42,12 @@ produção as variáveis vêm do ambiente. `.env.example` lista todas.
 | variável | default | descrição |
 | --- | --- | --- |
 | `PORT` | `3000` | porta HTTP; inteiro entre 1 e 65535 |
-| `NODE_ENV` | `development` | `development`, `test` ou `production` |
+| `NODE_ENV` | `development` | `development`, `test`, `Staging` ou `production` |
+| `PROVIDER_TIMEOUT_MS` | `2500` | timeout de cada provedor; a request leva até 2× isso |
+| `CIRCUIT_FAILURE_THRESHOLD` | `3` | falhas consecutivas que abrem o circuito |
+| `CIRCUIT_RESET_MS` | `30000` | tempo que o circuito fica aberto |
 
-As duas são validadas por Zod na partida, em `src/shared/env/`. Configuração inválida
+Todas são validadas por Zod na partida, em `src/shared/env/`. Configuração inválida
 **derruba a aplicação na hora**, nomeando a variável e o motivo:
 
 ```
@@ -77,15 +80,20 @@ sabe-se lá quando.
 O formato é o mesmo venha de qual provedor vier. `complemento` é `null` quando o provedor
 que atendeu não expõe o campo — é o caso da BrasilAPI.
 
-**400** — CEP fora do formato:
+Erros levam sempre `code` e `message`:
+
+| status | `code` | quando |
+| --- | --- | --- |
+| `400` | `INVALID_CEP` | formato inválido |
+| `404` | `CEP_NOT_FOUND` | algum provedor respondeu que o CEP não existe |
+| `503` | `PROVIDER_UNAVAILABLE` | só um provedor pôde ser tentado, e ele falhou |
+| `504` | `ALL_PROVIDERS_FAILED` | todos os provedores tentados falharam |
 
 ```json
-{
-  "message": ["cep deve ter exatamente 8 dígitos, sem máscara"],
-  "error": "Bad Request",
-  "statusCode": 400
-}
+{ "code": "CEP_NOT_FOUND", "message": "CEP não encontrado." }
 ```
+
+Qual provedor falhou e por quê não entra no corpo: é dado de operação, não de cliente.
 
 ## Como funciona
 
@@ -94,9 +102,10 @@ GET /cep/:cep
   → ValidationPipe + GetCepParamsDto   valida a entrada
       → CepController.get()
           → CepService.findOne()           revalida e orquestra
-              → ProviderRoundRobin.next()  escolhe o provedor da vez
-                  → CepProvider.findOne()  porta
-                      → ViaCepAdapter | BrasilApiAdapter
+              → ProviderRoundRobin.order() rotação: quem tenta primeiro, quem é fallback
+                  → CircuitBreakerProvider  pula provedor que vem falhando
+                      → CepProvider.findOne()  porta
+                          → ViaCepAdapter | BrasilApiAdapter
 ```
 
 O controller não conhece provedor; o service conhece só a porta `CepProvider`. Os
@@ -106,14 +115,24 @@ adaptadores são os únicos que sabem o formato de cada API externa.
 incluí-lo na lista do token `CEP_PROVIDERS`, em `cep.module.ts`. Controller, service e
 seletor não mudam.
 
+## Resiliência
+
+- **Fallback.** Falha não-definitiva num provedor faz a consulta seguir para o próximo da
+  rotação. Só `NOT_FOUND` interrompe, porque a resposta vale para todos.
+- **Timeout por provedor** (`PROVIDER_TIMEOUT_MS`). Uma API pendurada não segura a request
+  indefinidamente.
+- **Circuit breaker por provedor.** Depois de N falhas consecutivas, o provedor para de ser
+  chamado por `CIRCUIT_RESET_MS` — não se paga o timeout de novo em quem já se sabe fora.
+  `NOT_FOUND` não conta: é resposta válida, não sintoma de saúde.
+
 ## Limitações conhecidas
 
-- **Sem fallback.** Se o provedor sorteado falhar, a request falha — mesmo com o outro
-  provedor no ar.
-- **Sem timeout.** Uma API lenta segura a request pelo tempo que quiser.
-- **CEP inexistente não é tratado.** O ViaCEP responde `HTTP 200` com corpo
-  `{"erro": "true"}`; o adaptador não reconhece isso e a request estoura em 500. Pela
-  BrasilAPI o mesmo CEP pode responder 200. Ou seja, hoje a resposta depende de quem
-  atendeu.
-
-Tudo isso é o escopo do próximo plano de implementação.
+- **Sem log estruturado.** É o que falta para responder "o que aconteceu em produção", e é
+  o plano 03.
+- **`404` da BrasilAPI é tratado como CEP inexistente.** O corpo dela diz "Todos os serviços
+  de CEP retornaram erro", o que também aconteceria se os upstreams *dela* caíssem — nesse
+  caso responderíamos `404` sem consultar o ViaCEP.
+- **`400` tem formato diferente dos demais erros.** Vem do `ValidationPipe`
+  (`{ message: [...], error, statusCode }`), não de `CepException`.
+- **Estado em memória.** Round-robin e circuito vivem no processo; com várias réplicas, cada
+  uma tem a sua visão.
