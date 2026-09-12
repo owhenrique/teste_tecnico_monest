@@ -1,5 +1,7 @@
 import { PinoLogger } from 'nestjs-pino';
 
+import { IssueLevel } from '../../../shared/sentry/issue-level.enum.js';
+import { IssueReporter } from '../../../shared/sentry/issue-reporter.interface.js';
 import { CircuitBreaker } from '../../../shared/circuit-breaker/circuit-breaker.js';
 import { CircuitState } from '../../../shared/circuit-breaker/circuit-state.enum.js';
 import { CepFailureType } from '../enums/cep-failure-type.enum.js';
@@ -19,6 +21,7 @@ export class CircuitBreakerProvider implements CepProvider {
     threshold: number,
     resetMs: number,
     private readonly logger: PinoLogger,
+    private readonly issues: IssueReporter,
   ) {
     this.name = provider.name;
     this.breaker = new CircuitBreaker({
@@ -44,6 +47,13 @@ export class CircuitBreakerProvider implements CepProvider {
         event: CepLogEvent.CIRCUIT_OPENED,
         provider: this.name,
         consecutiveFailures,
+      });
+
+      this.issues.report({
+        level: IssueLevel.ERROR,
+        message: `${this.name}: circuito aberto`,
+        fingerprint: [this.name, CepLogEvent.CIRCUIT_OPENED],
+        context: { provider: this.name, consecutiveFailures },
       });
 
       return;

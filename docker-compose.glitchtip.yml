@@ -1,0 +1,79 @@
+# GlitchTip local, só para desenvolvimento. Não é a aplicação e não entra em deploy.
+# Subir:  docker compose -f docker-compose.glitchtip.yml up -d
+# Depois: abrir http://localhost:8989, criar usuário e projeto, copiar a DSN para SENTRY_DSN.
+#
+# Sem SENTRY_DSN no .env, a API roda sem nada disto no ar.
+
+x-glitchtip-env: &glitchtip-env
+  DATABASE_URL: postgres://glitchtip:glitchtip@postgres:5432/glitchtip
+  REDIS_URL: redis://redis:6379/0
+  SECRET_KEY: apenas-para-desenvolvimento-local
+  PORT: 8000
+  GLITCHTIP_DOMAIN: http://localhost:8989
+  ENABLE_OPEN_USER_REGISTRATION: 'true'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: glitchtip
+      POSTGRES_PASSWORD: glitchtip
+      POSTGRES_DB: glitchtip
+    volumes:
+      - glitchtip-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U glitchtip']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: glitchtip/glitchtip:latest
+    command: ./manage.py migrate
+    environment: *glitchtip-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  web:
+    image: glitchtip/glitchtip:latest
+    environment: *glitchtip-env
+    # 8000 é a porta interna da imagem; 8989 evita a disputa por 8000 no host.
+    ports:
+      - '8989:8000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - glitchtip-uploads:/code/uploads
+
+  worker:
+    image: glitchtip/glitchtip:latest
+    command: ./bin/run-celery-with-beat.sh
+    environment: *glitchtip-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - glitchtip-uploads:/code/uploads
+
+volumes:
+  glitchtip-postgres:
+  glitchtip-uploads:

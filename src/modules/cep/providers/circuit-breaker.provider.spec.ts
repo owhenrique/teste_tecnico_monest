@@ -6,6 +6,7 @@ import { CepProviderName } from '../enums/cep-provider-name.enum.js';
 import { CepProviderError } from '../errors/cep-provider.error.js';
 import { Address } from '../interfaces/address.interface.js';
 import { CepProvider } from '../interfaces/cep-provider.interface.js';
+import { IssueReporter } from '../../../shared/sentry/issue-reporter.interface.js';
 import { CircuitBreakerProvider } from './circuit-breaker.provider.js';
 
 /**
@@ -26,11 +27,16 @@ function fakeLogger(): PinoLogger {
   } as unknown as PinoLogger;
 }
 
+function fakeReporter(): IssueReporter {
+  return { report: vi.fn() };
+}
+
 function breakerOver(
   provider: CepProvider,
   logger: PinoLogger = fakeLogger(),
+  reporter: IssueReporter = fakeReporter(),
 ): CircuitBreakerProvider {
-  return new CircuitBreakerProvider(provider, THRESHOLD, RESET_MS, logger);
+  return new CircuitBreakerProvider(provider, THRESHOLD, RESET_MS, logger, reporter);
 }
 
 function failing(failure: CepFailureType): CepProvider {
@@ -101,6 +107,30 @@ describe('CircuitBreakerProvider', () => {
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'CIRCUIT_CLOSED', provider: 'viacep' }),
     );
+    vi.useRealTimers();
+  });
+
+  it('reporta issue de error ao abrir o circuito, e nada ao fechar', async () => {
+    vi.useFakeTimers();
+    const reporter = fakeReporter();
+    const breaker = breakerOver(failing(CepFailureType.UNAVAILABLE), fakeLogger(), reporter);
+
+    await failTimes(breaker, THRESHOLD);
+
+    expect(reporter.report).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'error',
+        fingerprint: ['viacep', 'CIRCUIT_OPENED'],
+        context: expect.objectContaining({ provider: 'viacep', consecutiveFailures: THRESHOLD }),
+      }),
+    );
+    expect(reporter.report).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(RESET_MS + 1);
+    await failTimes(breaker, 1);
+
+    // Fechar não é incidente: nada de issue nova por voltar ao normal.
+    expect(reporter.report).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
 });

@@ -21,6 +21,13 @@ Expõe a classe `AppModule`, consumida por `main.ts` (produção) e pelos testes
   apenas nesse ambiente; nos demais a spec sequer é gerada, então não há custo de partida
   nem superfície exposta. Limitação aceita: `staging` também fica sem. Deixar aberto por
   padrão é que não.
+- **`SENTRY_DSN` é a única variável opcional** — exceção consciente à regra de que toda
+  variável é obrigatória. Aquela vale para configuração de que a aplicação depende; o
+  GlitchTip é integração opcional, e quem só quer rodar a API não deveria precisar subir
+  contêiner nem descobrir isso por um `exit 1`.
+- **`@sentry/node` em vez de `@sentry/nestjs`** — o SDK de Nest não declara Nest 12 fora de
+  um beta, e sua principal vantagem (captura automática) é o oposto do que se quer aqui:
+  curadoria do que vira issue.
 - **`/favicon.ico` fora do log** — navegador pede em toda visita; é ruído, não tráfego.
 - **`ValidationPipe` como `APP_PIPE`, não `app.useGlobalPipes` no `main.ts`** — o
   `main.ts` não roda nos testes e2e, então a validação ficava desligada neles: o teste de

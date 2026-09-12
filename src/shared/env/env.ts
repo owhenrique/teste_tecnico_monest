@@ -24,5 +24,6 @@ export function envOf(config: ConfigService<Env, true>): Env {
     CIRCUIT_FAILURE_THRESHOLD: config.get('CIRCUIT_FAILURE_THRESHOLD', { infer: true }),
     CIRCUIT_RESET_MS: config.get('CIRCUIT_RESET_MS', { infer: true }),
     LOG_LEVEL: config.get('LOG_LEVEL', { infer: true }),
+    SENTRY_DSN: config.get('SENTRY_DSN', { infer: true }),
   };
 }

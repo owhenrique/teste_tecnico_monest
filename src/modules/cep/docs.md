@@ -97,6 +97,22 @@ Todos carregam `durationMs`. Nos três primeiros é o tempo **daquela tentativa*
 
 Toda consulta termina com **exatamente uma** linha de desfecho.
 
+## Issues
+
+`FAILURE_ISSUE` decide o que vira issue no GlitchTip e em que nível — `null` é "não
+reporta", explícito:
+
+| falha | issue | por quê |
+| --- | --- | --- |
+| `INVALID_RESPONSE` | `error` | o provedor mudou o contrato |
+| `TIMEOUT` / `UNAVAILABLE` / `RATE_LIMITED` | `warning` | o sinal é o volume, não a ocorrência |
+| `NOT_FOUND` | — | resposta válida |
+| `CIRCUIT_OPEN` | — | consequência de falhas já reportadas |
+
+Abertura de circuito vira `error` à parte. O fingerprint é `[provider, falha]`, então
+repetição vira **contador de uma issue**, não issues novas. Todo evento leva o `requestId`,
+que liga a issue à sequência de log daquela requisição.
+
 ## Decisões
 
 - **Sem camada de domínio** — não há banco nem modelo de negócio para isolar. `Address` e
@@ -120,6 +136,14 @@ Toda consulta termina com **exatamente uma** linha de desfecho.
 - **`CepResponseDto implements Address`** — o `implements` faz o compilador reprovar
   divergência entre contrato e schema documentado. Descartado declarar schema inline, que
   nada verifica.
+- **`INVALID_RESPONSE` é issue de `error` mesmo com a request devolvendo `200`** — o
+  fallback esconde do cliente, não de nós. É o único sinal de que um provedor mudou o
+  contrato; sem ele, a quebra só apareceria quando os dois mudassem no mesmo dia.
+- **Timeout agrupado, não suprimido** — o volume *é* a informação. Fingerprint por provedor
+  e falha transforma mil timeouts em uma issue com mil eventos.
+- **Domínio não conhece o SDK** — `CepService` e `CircuitBreakerProvider` dependem da porta
+  `IssueReporter`; só `shared/sentry/` importa `@sentry/node`. Mesmo princípio que mantém o
+  `CircuitBreaker` sem conhecer logger.
 - **Dicionário de erros, não uma classe por erro** — `CepException` é a única exceção de
   fronteira; `CepErrorCode` escolhe status e mensagem em `CEP_ERRORS`. Erro novo é uma
   linha, não um arquivo. Por ser `Record<CepErrorCode, …>`, código sem definição não

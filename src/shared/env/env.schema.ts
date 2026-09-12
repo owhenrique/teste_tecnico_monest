@@ -14,6 +14,7 @@ export const envSchema = z.object({
   CIRCUIT_FAILURE_THRESHOLD: positiveInt,
   CIRCUIT_RESET_MS: positiveInt,
   LOG_LEVEL: z.enum(LogLevel),
+  SENTRY_DSN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

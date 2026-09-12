@@ -1,9 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
+import { ISSUE_REPORTER, IssueReporter } from '../../shared/sentry/issue-reporter.interface.js';
+import { IssueLevel } from '../../shared/sentry/issue-level.enum.js';
 import { CepErrorCode } from './enums/cep-error-code.enum.js';
 import { CepLogEvent } from './enums/cep-log-event.enum.js';
 import { CepProviderError, isDefinitive } from './errors/cep-provider.error.js';
+import { FAILURE_ISSUE } from './errors/failure-issue.dictionary.js';
 import { CepException } from './exceptions/cep.exception.js';
 import { Address } from './interfaces/address.interface.js';
 import { ProviderRoundRobin } from './providers/provider-round-robin.js';
@@ -14,6 +17,7 @@ export class CepService {
   constructor(
     private readonly providers: ProviderRoundRobin,
     private readonly logger: PinoLogger,
+    @Inject(ISSUE_REPORTER) private readonly issues: IssueReporter,
   ) {
     this.logger.setContext(CepService.name);
   }
@@ -56,30 +60,58 @@ export class CepService {
           throw new CepException(CepErrorCode.CEP_NOT_FOUND);
         }
 
+        const durationMs = Date.now() - startedAt;
+
         this.logger.warn({
           event: CepLogEvent.PROVIDER_FAILED,
           provider: error.provider,
           failure: error.failure,
           cep,
-          durationMs: Date.now() - startedAt,
+          durationMs,
         });
 
+        this.reportFailure(error, cep, durationMs);
         failures.push(error);
       }
     }
 
+    const resumo = failures.map(({ provider, failure }) => ({ provider, failure }));
+    const durationMs = Date.now() - lookupStartedAt;
+    const code =
+      failures.length > 1 ? CepErrorCode.ALL_PROVIDERS_FAILED : CepErrorCode.PROVIDER_UNAVAILABLE;
+
     this.logger.error({
       event: CepLogEvent.LOOKUP_EXHAUSTED,
       cep,
-      // Total gasto até desistir, somando todas as tentativas — não o de uma delas.
-      durationMs: Date.now() - lookupStartedAt,
-      failures: failures.map(({ provider, failure }) => ({ provider, failure })),
+      durationMs,
+      failures: resumo,
     });
 
-    // O número de tentativas decide o status: mais de uma, os upstreams falharam (504);
-    // uma só, não havia a quem recorrer (503).
-    throw new CepException(
-      failures.length > 1 ? CepErrorCode.ALL_PROVIDERS_FAILED : CepErrorCode.PROVIDER_UNAVAILABLE,
-    );
+    // Issue própria: as falhas por provedor já viraram `warning`, mas devolver erro ao
+    // cliente é outra severidade. Fingerprint pelo código para 504 e 503 não se misturarem.
+    this.issues.report({
+      level: IssueLevel.ERROR,
+      message: `consulta de CEP falhou: ${code}`,
+      fingerprint: [code],
+      context: { cep, durationMs, failures: resumo },
+    });
+
+    throw new CepException(code);
+  }
+
+  /** O dicionário decide se vira issue; fingerprint por provedor e falha agrupa a rajada. */
+  private reportFailure(error: CepProviderError, cep: string, durationMs: number): void {
+    const level = FAILURE_ISSUE[error.failure];
+
+    if (level === null) {
+      return;
+    }
+
+    this.issues.report({
+      level,
+      message: `${error.provider}: ${error.failure}`,
+      fingerprint: [error.provider, error.failure],
+      context: { provider: error.provider, failure: error.failure, cep, durationMs },
+    });
   }
 }

@@ -57,6 +57,7 @@ aplicação exige são as *variáveis*, não o arquivo.
 | `CIRCUIT_FAILURE_THRESHOLD` | falhas consecutivas que abrem o circuito |
 | `CIRCUIT_RESET_MS` | tempo que o circuito fica aberto |
 | `LOG_LEVEL` | `fatal`, `error`, `warn`, `info`, `debug` ou `trace` |
+| `SENTRY_DSN` | **opcional** — DSN do GlitchTip; ausente, nada é enviado |
 
 Todas são validadas por Zod na partida. Configuração ausente ou inválida **derruba a
 aplicação**, listando o que falta:
@@ -160,6 +161,31 @@ encheria de ruído previsível qualquer alerta montado sobre o nível.
 Diagnosticar uma falha é filtrar pelo id e ler a sequência: qual provedor foi tentado, por
 que falhou, quanto demorou, e se algum circuito abriu. Em desenvolvimento a saída é
 formatada por `pino-pretty`; nos demais ambientes, JSON puro em `stdout`.
+
+## Issues no GlitchTip
+
+Nem só `500` vira issue. Um provedor que muda o contrato responde `200` e o fallback
+esconde a quebra; uma rajada de timeouts não é um erro, é um incidente. Então:
+
+| situação | issue | nível |
+| --- | --- | --- |
+| provedor devolveu formato inesperado | sim | `error` |
+| timeout, indisponibilidade, `429` | sim, **agrupados** | `warning` |
+| circuito de um provedor abriu | sim | `error` |
+| CEP inexistente ou formato inválido | **não** | — |
+
+Timeouts são agrupados por `[provedor, falha]`: mil deles viram **uma** issue com mil
+eventos, e o contador é a métrica. Todo evento leva o `requestId`, que liga a issue à
+sequência de log da requisição.
+
+Para experimentar:
+
+```bash
+docker compose -f docker-compose.glitchtip.yml up -d   # http://localhost:8989
+# crie usuário e projeto, copie a DSN para SENTRY_DSN no .env
+```
+
+Sem `SENTRY_DSN`, nada disso precisa estar no ar — a API funciona por inteiro.
 
 ## Limitações conhecidas
 
