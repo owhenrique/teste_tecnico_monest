@@ -22,6 +22,7 @@ export class CepService {
     assertIsValidCep(cep);
 
     const failures: CepProviderError[] = [];
+    const lookupStartedAt = Date.now();
 
     for (const provider of this.providers.order()) {
       const startedAt = Date.now();
@@ -42,13 +43,14 @@ export class CepService {
           throw error;
         }
 
-        // Resposta definitiva vale para todos: consultar o próximo só gastaria latência.
-        // E não é falha do provedor — por isso sai só o desfecho, sem PROVIDER_FAILED.
+        // Definitiva vale para todos os provedores: parar aqui é a regra, e não é falha
+        // do provedor — por isso nenhum PROVIDER_FAILED.
         if (isDefinitive(error.failure)) {
           this.logger.info({
             event: CepLogEvent.CEP_NOT_FOUND,
             provider: error.provider,
             cep,
+            durationMs: Date.now() - startedAt,
           });
 
           throw new CepException(CepErrorCode.CEP_NOT_FOUND);
@@ -69,11 +71,13 @@ export class CepService {
     this.logger.error({
       event: CepLogEvent.LOOKUP_EXHAUSTED,
       cep,
+      // Total gasto até desistir, somando todas as tentativas — não o de uma delas.
+      durationMs: Date.now() - lookupStartedAt,
       failures: failures.map(({ provider, failure }) => ({ provider, failure })),
     });
 
-    // Mais de um provedor tentado e nenhum entregou: os upstreams é que falharam (504).
-    // Um só: não havia a quem recorrer (503).
+    // O número de tentativas decide o status: mais de uma, os upstreams falharam (504);
+    // uma só, não havia a quem recorrer (503).
     throw new CepException(
       failures.length > 1 ? CepErrorCode.ALL_PROVIDERS_FAILED : CepErrorCode.PROVIDER_UNAVAILABLE,
     );

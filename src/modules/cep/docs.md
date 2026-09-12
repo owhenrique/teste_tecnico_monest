@@ -88,6 +88,10 @@ entrada, ou gerado). Eventos no enum `CepLogEvent`:
 | `CEP_FOUND` | `info` | consulta atendida, com o provedor que atendeu |
 | `CEP_NOT_FOUND` | `info` | provedor respondeu que o CEP não existe |
 | `LOOKUP_EXHAUSTED` | `error` | nenhum provedor entregou, com a falha de cada um |
+
+Todos carregam `durationMs`. Nos três primeiros é o tempo **daquela tentativa**; no
+`LOOKUP_EXHAUSTED` é o **total** gasto até desistir, que com fallback chega perto de N ×
+`PROVIDER_TIMEOUT_MS` e é o número a observar quando a latência sobe.
 | `CIRCUIT_OPENED` | `error` | circuito de um provedor abriu |
 | `CIRCUIT_CLOSED` | `info` | circuito voltou a fechar |
 

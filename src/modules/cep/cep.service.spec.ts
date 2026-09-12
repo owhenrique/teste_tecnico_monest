@@ -184,6 +184,7 @@ describe('CepService', () => {
         event: 'CEP_NOT_FOUND',
         provider: 'viacep',
         cep: '00000000',
+        durationMs: expect.any(Number),
       }),
     );
   });
@@ -202,6 +203,8 @@ describe('CepService', () => {
       expect.objectContaining({
         event: 'LOOKUP_EXHAUSTED',
         cep: '01001000',
+        // Aqui o tempo é o total gasto até desistir, não o de uma tentativa.
+        durationMs: expect.any(Number),
         failures: [
           { provider: 'viacep', failure: 'TIMEOUT' },
           { provider: 'brasilapi', failure: 'UNAVAILABLE' },

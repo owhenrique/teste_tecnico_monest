@@ -149,6 +149,10 @@ um id é gerado.
  "context":"CepService","event":"CEP_FOUND","provider":"viacep","cep":"01001000","durationMs":471}
 ```
 
+`durationMs` acompanha todo evento: nos eventos de tentativa é o tempo daquele provedor;
+no `LOOKUP_EXHAUSTED` é o total gasto antes de desistir. É a métrica mais direta para
+comparar provedores e perceber degradação.
+
 O nível reflete a severidade: `5xx` é `error`, `4xx` é `warn`, e `404` fica em `info` de
 propósito — "CEP não existe" é resposta correta a uma pergunta válida, e como `warn`
 encheria de ruído previsível qualquer alerta montado sobre o nível.
