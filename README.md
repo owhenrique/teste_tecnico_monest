@@ -11,12 +11,13 @@ Enunciado do teste: [DESAFIO.md](DESAFIO.md) · Convenções de desenvolvimento:
 
 ## Stack
 
-NestJS 12 (ESM) · TypeScript 6 · Vitest · oxlint · Prettier
+NestJS 12 (ESM) · TypeScript 6 · Zod · Vitest · oxlint · Prettier
 
 ## Executando
 
 ```bash
 npm install
+cp .env.example .env     # opcional; sem ele valem os defaults
 npm run start:dev        # http://localhost:3000 (ou $PORT)
 ```
 
@@ -35,9 +36,24 @@ npm run start:dev        # http://localhost:3000 (ou $PORT)
 
 ## Configuração
 
+O `.env` é opcional e lido pelo próprio Node (`process.loadEnvFile`) na partida — em
+produção as variáveis vêm do ambiente. `.env.example` lista todas.
+
 | variável | default | descrição |
 | --- | --- | --- |
-| `PORT` | `3000` | porta HTTP da aplicação |
+| `PORT` | `3000` | porta HTTP; inteiro entre 1 e 65535 |
+| `NODE_ENV` | `development` | `development`, `test` ou `production` |
+
+As duas são validadas por Zod na partida, em `src/shared/env/`. Configuração inválida
+**derruba a aplicação na hora**, nomeando a variável e o motivo:
+
+```
+Error: Variáveis de ambiente inválidas:
+  PORT: Invalid input: expected number, received NaN
+```
+
+É deliberado: melhor não subir do que subir com configuração quebrada e o erro aparecer
+sabe-se lá quando.
 
 ## Contrato
 
