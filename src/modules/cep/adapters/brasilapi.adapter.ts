@@ -23,8 +23,7 @@ export class BrasilApiAdapter implements CepProvider {
 
   async findOne(cep: string): Promise<Address> {
     // A BrasilAPI responde 404 com `type: "service_error"` — "Todos os serviços de CEP
-    // retornaram erro". Tratamos como CEP inexistente, que é o caso comum. Limitação
-    // aceita: se os upstreams dela caírem, viramos 404 sem consultar o ViaCEP.
+    // retornaram erro".
     const data = await requestProvider<BrasilApiResponse>(
       this.http,
       this.name,

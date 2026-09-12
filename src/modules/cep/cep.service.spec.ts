@@ -45,7 +45,7 @@ describe('CepService', () => {
     expect(provider.findOne).toHaveBeenCalledWith('01001000');
   });
 
-  it.each(['01001-000', '1234567', 'abcdefgh', ''])(
+  it.each(['01001-000', '1234567', '123456789', 'abcdefgh', '', '0100100a'])(
     'rejeita %j com CepException(INVALID_CEP), sem consultar provedor',
     async (invalid) => {
       const provider = providerFound(CepProviderName.VIACEP);

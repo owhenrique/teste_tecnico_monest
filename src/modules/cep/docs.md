@@ -10,7 +10,7 @@ tolerando falha, lentidão e indisponibilidade de qualquer um deles.
 | status | código | quando |
 | --- | --- | --- |
 | `200` | — | `Address` |
-| `400` | `INVALID_CEP` | formato inválido (corpo do `ValidationPipe`, ver Pendências) |
+| `400` | `INVALID_CEP` | formato inválido |
 | `404` | `CEP_NOT_FOUND` | algum provedor respondeu que o CEP não existe |
 | `503` | `PROVIDER_UNAVAILABLE` | só um provedor pôde ser tentado, e ele falhou |
 | `504` | `ALL_PROVIDERS_FAILED` | todos os provedores tentados falharam |
@@ -53,8 +53,8 @@ adaptador, olhando o campo `erro` (a *string* `"true"`, não o booleano).
 ## Regras
 
 1. O CEP aceito é exatamente 8 dígitos, sem máscara.
-2. A validação acontece no DTO, na borda; o `CepService` revalida, porque nem todo chamador
-   vem do HTTP.
+2. O formato do CEP é validado no `CepService`, por `assertIsValidCep` — dono único da
+   regra. O DTO só declara o campo.
 3. Adaptador nunca deixa `AxiosError` escapar: traduz para `CepProviderError` com um
    `CepFailureType`.
 4. `NOT_FOUND` é a única falha **definitiva**: interrompe a busca e vira `404`, sem
@@ -72,6 +72,13 @@ adaptador, olhando o campo `erro` (a *string* `"true"`, não o booleano).
 - **Sem camada de domínio** — não há banco nem modelo de negócio para isolar. `Address` e
   `CepProvider` são contratos e ficam em `interfaces/`; os tradutores das APIs externas, em
   `adapters/`.
+- **Formato do CEP validado só no service** — `assertIsValidCep` é o dono único da regra.
+  O `@IsString()` do DTO não valida formato: existe porque o `ValidationPipe` roda com
+  `whitelist: true`, que descarta propriedade sem decorator de validação — sem ele o `cep`
+  chegaria `undefined`. Descartado `@Matches` no DTO, que era uma segunda dona da regra e
+  fazia o `400` sair no formato do pipe (`{ message: [...], error, statusCode }`), com
+  `message` mudando de `string` para `string[]` e sem `code`. Descartado também desligar o
+  `whitelist`, que é a defesa contra propriedade não declarada.
 - **Dicionário de erros, não uma classe por erro** — `CepException` é a única exceção de
   fronteira; `CepErrorCode` escolhe status e mensagem em `CEP_ERRORS`. Erro novo é uma
   linha, não um arquivo. Por ser `Record<CepErrorCode, …>`, código sem definição não
@@ -109,13 +116,6 @@ adaptador, olhando o campo `erro` (a *string* `"true"`, não o booleano).
 - **`HttpService` do `@nestjs/axios`** — timeout, e futuros interceptor e retry, entram como
   configuração do módulo. O axios lança em status não-2xx, o que o `fetch` não fazia.
 
-## Pendências
-
-- **O `400` não segue o formato dos outros erros.** Sai do `ValidationPipe`
-  (`{ message: [...], error, statusCode }`), enquanto `404`/`503`/`504` saem de `CepException`
-  (`{ code, message }`). Uniformizar exige um `exceptionFactory` no pipe que lance
-  `CepException(INVALID_CEP)`.
-
 ## Arquivos
 
 | arquivo | papel |
@@ -127,5 +127,5 @@ adaptador, olhando o campo `erro` (a *string* `"true"`, não o booleano).
 | `errors/cep-error.dictionary.ts` | código → status + mensagem |
 | `errors/cep-provider.error.ts` | falha de uma tentativa + `isDefinitive` |
 | `exceptions/cep.exception.ts` | única exceção de fronteira; lê o dicionário |
-| `validators/cep.validator.ts` | `CEP_FORMAT` para o DTO, `assertIsValidCep` para o service |
+| `validators/cep.validator.ts` | `assertIsValidCep` — dono único do formato do CEP |
 | `cep.module.ts` | timeout do `HttpModule` e lista `CEP_PROVIDERS` já embrulhada no breaker |

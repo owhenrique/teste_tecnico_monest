@@ -80,10 +80,14 @@ describe('GET /cep/:cep (e2e)', () => {
     });
   });
 
-  it('responde 400 para CEP com máscara', async () => {
-    const response = await request(app.getHttpServer()).get('/cep/01001-000');
+  it.each(['01001-000', '123', 'abcdefgh'])('responde 400 para %j, no mesmo formato dos demais erros', async (invalid) => {
+    const response = await request(app.getHttpServer()).get(`/cep/${invalid}`);
 
     expect(response.status).toBe(HttpStatus.BAD_REQUEST);
+    expect(response.body).toEqual({
+      code: 'INVALID_CEP',
+      message: 'CEP deve ter exatamente 8 dígitos, sem máscara.',
+    });
   });
 
   it('responde 404 quando o provedor diz que o CEP não existe', async () => {

@@ -132,7 +132,5 @@ seletor não mudam.
 - **`404` da BrasilAPI é tratado como CEP inexistente.** O corpo dela diz "Todos os serviços
   de CEP retornaram erro", o que também aconteceria se os upstreams *dela* caíssem — nesse
   caso responderíamos `404` sem consultar o ViaCEP.
-- **`400` tem formato diferente dos demais erros.** Vem do `ValidationPipe`
-  (`{ message: [...], error, statusCode }`), não de `CepException`.
 - **Estado em memória.** Round-robin e circuito vivem no processo; com várias réplicas, cada
   uma tem a sua visão.
