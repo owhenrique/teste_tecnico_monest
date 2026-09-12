@@ -11,6 +11,7 @@ describe('loadEnv', () => {
       PROVIDER_TIMEOUT_MS: 2500,
       CIRCUIT_FAILURE_THRESHOLD: 3,
       CIRCUIT_RESET_MS: 30000,
+      LOG_LEVEL: 'info',
     });
   });
 
@@ -42,5 +43,9 @@ describe('loadEnv', () => {
 
   it('recusa timeout de provedor não positivo', () => {
     expect(() => loadEnv({ PROVIDER_TIMEOUT_MS: '0' })).toThrow(/PROVIDER_TIMEOUT_MS/);
+  });
+
+  it('recusa nível de log desconhecido', () => {
+    expect(() => loadEnv({ LOG_LEVEL: 'barulhento' })).toThrow(/LOG_LEVEL/);
   });
 });

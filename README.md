@@ -11,7 +11,7 @@ Enunciado do teste: [DESAFIO.md](DESAFIO.md) · Convenções de desenvolvimento:
 
 ## Stack
 
-NestJS 12 (ESM) · TypeScript 6 · Axios (`@nestjs/axios`) · Zod · Vitest · oxlint · Prettier
+NestJS 12 (ESM) · TypeScript 6 · Axios (`@nestjs/axios`) · Zod · Pino · Vitest · oxlint · Prettier
 
 ## Executando
 
@@ -42,10 +42,11 @@ produção as variáveis vêm do ambiente. `.env.example` lista todas.
 | variável | default | descrição |
 | --- | --- | --- |
 | `PORT` | `3000` | porta HTTP; inteiro entre 1 e 65535 |
-| `NODE_ENV` | `development` | `development`, `test`, `Staging` ou `production` |
+| `NODE_ENV` | `development` | `development`, `test`, `staging` ou `production` |
 | `PROVIDER_TIMEOUT_MS` | `2500` | timeout de cada provedor; a request leva até 2× isso |
 | `CIRCUIT_FAILURE_THRESHOLD` | `3` | falhas consecutivas que abrem o circuito |
 | `CIRCUIT_RESET_MS` | `30000` | tempo que o circuito fica aberto |
+| `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug` ou `trace` |
 
 Todas são validadas por Zod na partida, em `src/shared/env/`. Configuração inválida
 **derruba a aplicação na hora**, nomeando a variável e o motivo:
@@ -125,10 +126,27 @@ seletor não mudam.
   chamado por `CIRCUIT_RESET_MS` — não se paga o timeout de novo em quem já se sabe fora.
   `NOT_FOUND` não conta: é resposta válida, não sintoma de saúde.
 
+## Observabilidade
+
+Log estruturado em JSON, uma linha por evento, todas correlacionadas pelo id da requisição.
+O `X-Request-Id` de entrada é reaproveitado quando vem de um proxy ou gateway; na ausência,
+um id é gerado.
+
+```json
+{"level":30,"req":{"id":"id-do-gateway-abc","method":"GET","url":"/cep/01001000"},
+ "context":"CepService","event":"CEP_FOUND","provider":"viacep","cep":"01001000","durationMs":471}
+```
+
+O nível reflete a severidade: `5xx` é `error`, `4xx` é `warn`, e `404` fica em `info` de
+propósito — "CEP não existe" é resposta correta a uma pergunta válida, e como `warn`
+encheria de ruído previsível qualquer alerta montado sobre o nível.
+
+Diagnosticar uma falha é filtrar pelo id e ler a sequência: qual provedor foi tentado, por
+que falhou, quanto demorou, e se algum circuito abriu. Em desenvolvimento a saída é
+formatada por `pino-pretty`; nos demais ambientes, JSON puro em `stdout`.
+
 ## Limitações conhecidas
 
-- **Sem log estruturado.** É o que falta para responder "o que aconteceu em produção", e é
-  o plano 03.
 - **`404` da BrasilAPI é tratado como CEP inexistente.** O corpo dela diz "Todos os serviços
   de CEP retornaram erro", o que também aconteceria se os upstreams *dela* caíssem — nesse
   caso responderíamos `404` sem consultar o ViaCEP.

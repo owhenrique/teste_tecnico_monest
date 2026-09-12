@@ -1,6 +1,8 @@
 import { HttpStatus } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
+import { PinoLogger } from 'nestjs-pino';
+
 import { CepService } from './cep.service.js';
 import { CepErrorCode } from './enums/cep-error-code.enum.js';
 import { CepFailureType } from './enums/cep-failure-type.enum.js';
@@ -32,6 +34,19 @@ function selectorOf(...providers: CepProvider[]): ProviderRoundRobin {
   return { order: () => providers } as unknown as ProviderRoundRobin;
 }
 
+function fakeLogger(): PinoLogger {
+  return {
+    setContext: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  } as unknown as PinoLogger;
+}
+
+function serviceOf(logger: PinoLogger, ...providers: CepProvider[]): CepService {
+  return new CepService(selectorOf(...providers), logger);
+}
+
 async function caught(promise: Promise<unknown>): Promise<unknown> {
   return promise.catch((error: unknown) => error);
 }
@@ -39,7 +54,7 @@ async function caught(promise: Promise<unknown>): Promise<unknown> {
 describe('CepService', () => {
   it('devolve o endereço do primeiro provedor que responde', async () => {
     const provider = providerFound(CepProviderName.VIACEP);
-    const service = new CepService(selectorOf(provider));
+    const service = serviceOf(fakeLogger(), provider);
 
     await expect(service.findOne('01001000')).resolves.toEqual(ADDRESS);
     expect(provider.findOne).toHaveBeenCalledWith('01001000');
@@ -49,7 +64,7 @@ describe('CepService', () => {
     'rejeita %j com CepException(INVALID_CEP), sem consultar provedor',
     async (invalid) => {
       const provider = providerFound(CepProviderName.VIACEP);
-      const service = new CepService(selectorOf(provider));
+      const service = serviceOf(fakeLogger(), provider);
 
       const error = await caught(service.findOne(invalid));
 
@@ -64,8 +79,10 @@ describe('CepService', () => {
     'cai para o próximo provedor quando o primeiro falha com %s',
     async (failure) => {
       const segundo = providerFound(CepProviderName.BRASILAPI);
-      const service = new CepService(
-        selectorOf(providerFailing(CepProviderName.VIACEP, failure), segundo),
+      const service = serviceOf(
+        fakeLogger(),
+        providerFailing(CepProviderName.VIACEP, failure),
+        segundo,
       );
 
       await expect(service.findOne('01001000')).resolves.toEqual(ADDRESS);
@@ -75,8 +92,10 @@ describe('CepService', () => {
 
   it('trata NOT_FOUND como definitivo: 404 sem consultar o próximo provedor', async () => {
     const segundo = providerFound(CepProviderName.BRASILAPI);
-    const service = new CepService(
-      selectorOf(providerFailing(CepProviderName.VIACEP, CepFailureType.NOT_FOUND), segundo),
+    const service = serviceOf(
+      fakeLogger(),
+      providerFailing(CepProviderName.VIACEP, CepFailureType.NOT_FOUND),
+      segundo,
     );
 
     const error = await caught(service.findOne('00000000'));
@@ -88,11 +107,10 @@ describe('CepService', () => {
   });
 
   it('responde 504 quando todos os provedores tentados falham', async () => {
-    const service = new CepService(
-      selectorOf(
-        providerFailing(CepProviderName.VIACEP, CepFailureType.TIMEOUT),
-        providerFailing(CepProviderName.BRASILAPI, CepFailureType.UNAVAILABLE),
-      ),
+    const service = serviceOf(
+      fakeLogger(),
+      providerFailing(CepProviderName.VIACEP, CepFailureType.TIMEOUT),
+      providerFailing(CepProviderName.BRASILAPI, CepFailureType.UNAVAILABLE),
     );
 
     const error = await caught(service.findOne('01001000'));
@@ -103,8 +121,9 @@ describe('CepService', () => {
   });
 
   it('responde 503 quando só um provedor pôde ser tentado e ele falhou', async () => {
-    const service = new CepService(
-      selectorOf(providerFailing(CepProviderName.VIACEP, CepFailureType.CIRCUIT_OPEN)),
+    const service = serviceOf(
+      fakeLogger(),
+      providerFailing(CepProviderName.VIACEP, CepFailureType.CIRCUIT_OPEN),
     );
 
     const error = await caught(service.findOne('01001000'));
@@ -112,5 +131,94 @@ describe('CepService', () => {
     expect(error).toBeInstanceOf(CepException);
     expect((error as CepException).code).toBe(CepErrorCode.PROVIDER_UNAVAILABLE);
     expect((error as CepException).getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
+  });
+
+  it('loga PROVIDER_FAILED a cada tentativa que falha', async () => {
+    const logger = fakeLogger();
+    const service = serviceOf(
+      logger,
+      providerFailing(CepProviderName.VIACEP, CepFailureType.TIMEOUT),
+      providerFound(CepProviderName.BRASILAPI),
+    );
+
+    await service.findOne('01001000');
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'PROVIDER_FAILED',
+        provider: 'viacep',
+        failure: 'TIMEOUT',
+        cep: '01001000',
+        durationMs: expect.any(Number),
+      }),
+    );
+  });
+
+  it('loga CEP_FOUND com o provedor que atendeu', async () => {
+    const logger = fakeLogger();
+    const service = serviceOf(logger, providerFound(CepProviderName.BRASILAPI));
+
+    await service.findOne('01001000');
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'CEP_FOUND',
+        provider: 'brasilapi',
+        cep: '01001000',
+        durationMs: expect.any(Number),
+      }),
+    );
+  });
+
+  it('loga CEP_NOT_FOUND quando a falha é definitiva', async () => {
+    const logger = fakeLogger();
+    const service = serviceOf(
+      logger,
+      providerFailing(CepProviderName.VIACEP, CepFailureType.NOT_FOUND),
+    );
+
+    await caught(service.findOne('00000000'));
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'CEP_NOT_FOUND',
+        provider: 'viacep',
+        cep: '00000000',
+      }),
+    );
+  });
+
+  it('loga LOOKUP_EXHAUSTED com a falha de cada provedor', async () => {
+    const logger = fakeLogger();
+    const service = serviceOf(
+      logger,
+      providerFailing(CepProviderName.VIACEP, CepFailureType.TIMEOUT),
+      providerFailing(CepProviderName.BRASILAPI, CepFailureType.UNAVAILABLE),
+    );
+
+    await caught(service.findOne('01001000'));
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'LOOKUP_EXHAUSTED',
+        cep: '01001000',
+        failures: [
+          { provider: 'viacep', failure: 'TIMEOUT' },
+          { provider: 'brasilapi', failure: 'UNAVAILABLE' },
+        ],
+      }),
+    );
+  });
+
+  it('não loga PROVIDER_FAILED em NOT_FOUND: é resposta válida, não falha do provedor', async () => {
+    const logger = fakeLogger();
+    const service = serviceOf(
+      logger,
+      providerFailing(CepProviderName.VIACEP, CepFailureType.NOT_FOUND),
+    );
+
+    await caught(service.findOne('00000000'));
+
+    expect(logger.warn).not.toHaveBeenCalled();
   });
 });

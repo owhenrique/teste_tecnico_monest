@@ -5,6 +5,11 @@ export interface CircuitBreakerOptions {
   resetMs: number;
   openError: () => Error;
   ignoreFailure?: (error: unknown) => boolean;
+  /**
+   * Avisa quando o circuito abre ou fecha. É por aqui que quem usa registra a transição —
+   * o breaker não conhece logger, para seguir servindo a qualquer domínio.
+   */
+  onStateChange?: (state: CircuitState, consecutiveFailures: number) => void;
 }
 
 export class CircuitBreaker {
@@ -42,6 +47,7 @@ export class CircuitBreaker {
     if (this.consecutiveFailures >= this.options.threshold) {
       this.state = CircuitState.OPEN;
       this.openedAt = Date.now();
+      this.options.onStateChange?.(CircuitState.OPEN, this.consecutiveFailures);
     }
   }
 
@@ -56,6 +62,7 @@ export class CircuitBreaker {
 
     this.state = CircuitState.CLOSED;
     this.consecutiveFailures = 0;
+    this.options.onStateChange?.(CircuitState.CLOSED, 0);
 
     return false;
   }

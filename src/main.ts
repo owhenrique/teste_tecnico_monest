@@ -1,5 +1,5 @@
-import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module.js';
 import { loadEnv } from './shared/env/env.js';
@@ -20,10 +20,13 @@ async function bootstrap(): Promise<void> {
   readDotEnv();
 
   const env = loadEnv(process.env);
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const logger = app.get(Logger);
+
+  app.useLogger(logger);
 
   await app.listen(env.PORT);
-  Logger.log(`Aplicação ouvindo em http://localhost:${env.PORT} (${env.NODE_ENV})`, 'Bootstrap');
+  logger.log(`Aplicação ouvindo em http://localhost:${env.PORT} (${env.NODE_ENV})`, 'Bootstrap');
 }
 
 void bootstrap();

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CircuitBreaker } from './circuit-breaker.js';
+import { CircuitState } from './circuit-state.enum.js';
 
 const THRESHOLD = 3;
 const RESET_MS = 30_000;
@@ -81,5 +82,24 @@ describe('CircuitBreaker', () => {
       OpenError,
     );
     expect(operation).toHaveBeenCalledTimes(THRESHOLD + 1);
+  });
+
+  it('avisa a transição de estado ao abrir e ao fechar', async () => {
+    const onStateChange = vi.fn();
+    const subject = new CircuitBreaker({
+      threshold: THRESHOLD,
+      resetMs: RESET_MS,
+      openError: () => new OpenError('circuito aberto'),
+      onStateChange,
+    });
+    const operation = vi.fn().mockRejectedValue(new Error('falhou'));
+
+    await runFailing(subject, operation as () => Promise<never>, THRESHOLD);
+    expect(onStateChange).toHaveBeenCalledWith(CircuitState.OPEN, THRESHOLD);
+
+    vi.advanceTimersByTime(RESET_MS + 1);
+    await subject.run(operation as () => Promise<never>).catch(() => undefined);
+
+    expect(onStateChange).toHaveBeenCalledWith(CircuitState.CLOSED, 0);
   });
 });

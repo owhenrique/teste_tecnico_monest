@@ -9,6 +9,15 @@ Expõe a classe `AppModule`, consumida por `main.ts` (produção) e pelos testes
 
 ## Decisões
 
+- **Logger do pino substitui o do Nest** (`app.useLogger`) — evita dois formatos
+  convivendo, um para o bootstrap e outro para a aplicação. `bufferLogs: true` segura as
+  linhas de partida até o logger estar de pé.
+- **Nível da linha de requisição vem de `requestLogLevel`** — o `pino-http` registra tudo
+  em `info` por padrão, e aí um `504` fica indistinguível de um `200`. `5xx` é `error`,
+  `4xx` é `warn`, com `404` mantido em `info` de propósito: nesta API significa "CEP não
+  existe", resposta correta a pergunta válida, e como `warn` encheria o alerta de ruído
+  previsível.
+- **`/favicon.ico` fora do log** — navegador pede em toda visita; é ruído, não tráfego.
 - **`ValidationPipe` como `APP_PIPE`, não `app.useGlobalPipes` no `main.ts`** — o
   `main.ts` não roda nos testes e2e, então a validação ficava desligada neles: o teste de
   `400` passava sem validar nada. Registrado no módulo, o e2e exercita a mesma
@@ -30,4 +39,4 @@ Expõe a classe `AppModule`, consumida por `main.ts` (produção) e pelos testes
 | arquivo | papel |
 | --- | --- |
 | `main.ts` | bootstrap: lê o `.env`, valida o ambiente, cria a aplicação e escuta |
-| `app.module.ts` | composição dos módulos e registro do `ValidationPipe` global |
+| `app.module.ts` | composição dos módulos, `ValidationPipe` global e configuração do logger |

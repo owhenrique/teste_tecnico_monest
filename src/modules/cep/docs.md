@@ -67,6 +67,22 @@ adaptador, olhando o campo `erro` (a *string* `"true"`, não o booleano).
 9. `NOT_FOUND` não conta para o circuito; um sucesso zera o contador.
 10. Passado `CIRCUIT_RESET_MS`, o circuito fecha e o contador zera.
 
+## Log
+
+Uma linha JSON por evento, correlacionada pelo `req.id` da requisição (`X-Request-Id` de
+entrada, ou gerado). Eventos no enum `CepLogEvent`:
+
+| evento | nível | quando |
+| --- | --- | --- |
+| `PROVIDER_FAILED` | `warn` | tentativa que falhou de forma não-definitiva |
+| `CEP_FOUND` | `info` | consulta atendida, com o provedor que atendeu |
+| `CEP_NOT_FOUND` | `info` | provedor respondeu que o CEP não existe |
+| `LOOKUP_EXHAUSTED` | `error` | nenhum provedor entregou, com a falha de cada um |
+| `CIRCUIT_OPENED` | `error` | circuito de um provedor abriu |
+| `CIRCUIT_CLOSED` | `info` | circuito voltou a fechar |
+
+Toda consulta termina com **exatamente uma** linha de desfecho.
+
 ## Decisões
 
 - **Sem camada de domínio** — não há banco nem modelo de negócio para isolar. `Address` e
@@ -79,6 +95,10 @@ adaptador, olhando o campo `erro` (a *string* `"true"`, não o booleano).
   fazia o `400` sair no formato do pipe (`{ message: [...], error, statusCode }`), com
   `message` mudando de `string` para `string[]` e sem `code`. Descartado também desligar o
   `whitelist`, que é a defesa contra propriedade não declarada.
+- **`NOT_FOUND` não gera `PROVIDER_FAILED`** — é resposta válida do provedor, não falha
+  dele. Sai só a linha de desfecho `CEP_NOT_FOUND`. Mesma regra que mantém `NOT_FOUND` fora
+  da contagem do circuito; logar as duas rotularia como problema algo que é funcionamento
+  normal, e inflaria qualquer alerta montado sobre `warn`.
 - **Dicionário de erros, não uma classe por erro** — `CepException` é a única exceção de
   fronteira; `CepErrorCode` escolhe status e mensagem em `CEP_ERRORS`. Erro novo é uma
   linha, não um arquivo. Por ser `Record<CepErrorCode, …>`, código sem definição não
@@ -120,7 +140,8 @@ adaptador, olhando o campo `erro` (a *string* `"true"`, não o booleano).
 
 | arquivo | papel |
 | --- | --- |
-| `cep.service.ts` | valida, percorre a rotação, decide fallback × `404` × `504`/`503` |
+| `cep.service.ts` | valida, percorre a rotação, decide fallback × `404` × `504`/`503`, loga o desfecho |
+| `enums/cep-log-event.enum.ts` | eventos de log do módulo |
 | `providers/provider-round-robin.ts` | `order()` — rotação desta consulta, do primeiro ao último fallback |
 | `providers/circuit-breaker.provider.ts` | liga o `CircuitBreaker` de `shared/` à porta `CepProvider` |
 | `utils/provider-request.ts` | chamada HTTP comum aos provedores; traduz `AxiosError` em `CepFailureType` |

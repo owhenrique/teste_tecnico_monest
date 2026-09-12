@@ -1,3 +1,4 @@
+import { PinoLogger } from 'nestjs-pino';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CepFailureType } from '../enums/cep-failure-type.enum.js';
@@ -16,8 +17,20 @@ const ADDRESS = { cep: '01001000' } as Address;
 const THRESHOLD = 3;
 const RESET_MS = 30_000;
 
-function breakerOver(provider: CepProvider): CircuitBreakerProvider {
-  return new CircuitBreakerProvider(provider, THRESHOLD, RESET_MS);
+function fakeLogger(): PinoLogger {
+  return {
+    setContext: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  } as unknown as PinoLogger;
+}
+
+function breakerOver(
+  provider: CepProvider,
+  logger: PinoLogger = fakeLogger(),
+): CircuitBreakerProvider {
+  return new CircuitBreakerProvider(provider, THRESHOLD, RESET_MS, logger);
 }
 
 function failing(failure: CepFailureType): CepProvider {
@@ -64,5 +77,30 @@ describe('CircuitBreakerProvider', () => {
     expect(error).toBeInstanceOf(CepProviderError);
     expect((error as CepProviderError).failure).toBe(CepFailureType.CIRCUIT_OPEN);
     expect((error as CepProviderError).provider).toBe('viacep');
+  });
+
+  it('loga CIRCUIT_OPENED ao abrir e CIRCUIT_CLOSED ao fechar', async () => {
+    vi.useFakeTimers();
+    const logger = fakeLogger();
+    const provider = failing(CepFailureType.UNAVAILABLE);
+    const breaker = breakerOver(provider, logger);
+
+    await failTimes(breaker, THRESHOLD);
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'CIRCUIT_OPENED',
+        provider: 'viacep',
+        consecutiveFailures: THRESHOLD,
+      }),
+    );
+
+    vi.advanceTimersByTime(RESET_MS + 1);
+    await failTimes(breaker, 1);
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'CIRCUIT_CLOSED', provider: 'viacep' }),
+    );
+    vi.useRealTimers();
   });
 });

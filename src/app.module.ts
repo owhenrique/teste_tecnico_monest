@@ -1,14 +1,20 @@
 import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_PIPE } from '@nestjs/core';
+import { LoggerModule } from 'nestjs-pino';
 
 import { CepModule } from './modules/cep/cep.module.js';
+import { loadEnv } from './shared/env/env.js';
+import { buildLoggerOptions } from './shared/logger/logger.options.js';
 
 @Module({
-  imports: [CepModule],
+  imports: [
+    LoggerModule.forRootAsync({
+      useFactory: () => buildLoggerOptions(loadEnv(process.env)),
+    }),
+    CepModule,
+  ],
   providers: [
     {
-      // Registrado no módulo, e não via app.useGlobalPipes, para que os testes e2e
-      // exercitem a mesma configuração de validação que roda em produção.
       provide: APP_PIPE,
       useValue: new ValidationPipe({ transform: true, whitelist: true }),
     },
