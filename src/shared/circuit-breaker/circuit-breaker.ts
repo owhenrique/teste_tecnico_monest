@@ -5,10 +5,7 @@ export interface CircuitBreakerOptions {
   resetMs: number;
   openError: () => Error;
   ignoreFailure?: (error: unknown) => boolean;
-  /**
-   * Avisa quando o circuito abre ou fecha. É por aqui que quem usa registra a transição —
-   * o breaker não conhece logger, para seguir servindo a qualquer domínio.
-   */
+  /** Quem usa registra a transição por aqui: o breaker não conhece logger, de propósito. */
   onStateChange?: (state: CircuitState, consecutiveFailures: number) => void;
 }
 

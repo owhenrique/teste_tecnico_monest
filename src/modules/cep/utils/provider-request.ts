@@ -9,12 +9,7 @@ import { CepProviderError } from '../errors/cep-provider.error.js';
 
 const TIMEOUT_CODES = new Set(['ECONNABORTED', 'ETIMEDOUT']);
 
-/**
- * Faz a chamada HTTP de um provedor e garante a regra da porta: nenhum `AxiosError`
- * escapa do adaptador — tudo vira `CepProviderError` com um `CepFailureType`.
- *
- * O que varia entre provedores é só a URL e o `notFoundStatus`.
- */
+/** Regra da porta: nenhum `AxiosError` escapa do adaptador; tudo vira `CepProviderError`. */
 export async function requestProvider<T>(
   http: HttpService,
   provider: CepProviderName,
@@ -34,10 +29,7 @@ export async function requestProvider<T>(
   }
 }
 
-/**
- * `notFoundStatus` é o status com que *aquele* provedor diz "CEP não existe" — `404` na
- * BrasilAPI. O ViaCEP não usa status para isso (responde `200` com `erro`), então omite.
- */
+/** `notFoundStatus` é opcional porque o ViaCEP não usa status para "não existe": responde `200`. */
 function failureFromAxios(error: unknown, notFoundStatus?: HttpStatus): CepFailureType {
   if (!(error instanceof AxiosError)) {
     return CepFailureType.UNAVAILABLE;
@@ -50,7 +42,6 @@ function failureFromAxios(error: unknown, notFoundStatus?: HttpStatus): CepFailu
   const status = error.response?.status;
 
   if (status === undefined) {
-    // Sem resposta: DNS, conexão recusada, socket derrubado.
     return CepFailureType.UNAVAILABLE;
   }
 

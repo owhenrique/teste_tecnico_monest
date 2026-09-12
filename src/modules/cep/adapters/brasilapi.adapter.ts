@@ -6,7 +6,6 @@ import { Address } from '../interfaces/address.interface.js';
 import { CepProvider } from '../interfaces/cep-provider.interface.js';
 import { requestProvider } from '../utils/provider-request.js';
 
-/** Resposta da BrasilAPI, nos campos que o contrato único usa. */
 interface BrasilApiResponse {
   cep: string;
   state: string;

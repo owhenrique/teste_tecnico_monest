@@ -30,8 +30,6 @@ import { ProviderRoundRobin } from './providers/provider-round-robin.js';
     ViaCepAdapter,
     BrasilApiAdapter,
     {
-      // Acrescentar um provedor novo é escrever o adaptador e incluí-lo nesta lista; o
-      // circuit breaker vem junto, porque embrulha todo mundo igual.
       provide: CEP_PROVIDERS,
       useFactory: (
         viaCep: ViaCepAdapter,

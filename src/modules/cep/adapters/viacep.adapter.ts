@@ -8,9 +8,7 @@ import { Address } from '../interfaces/address.interface.js';
 import { CepProvider } from '../interfaces/cep-provider.interface.js';
 import { requestProvider } from '../utils/provider-request.js';
 
-/** Resposta do ViaCEP, nos campos que o contrato único usa. */
 interface ViaCepResponse {
-  /** Presente só quando o CEP não existe. É a string "true", não o booleano. */
   erro?: string;
   cep: string;
   logradouro: string;
@@ -33,7 +31,8 @@ export class ViaCepAdapter implements CepProvider {
       `https://viacep.com.br/ws/${cep}/json/`,
     );
 
-    // O ViaCEP sinaliza "não encontrado" com HTTP 200 e este campo; o axios não lança.
+    // O ViaCEP sinaliza "não existe" com HTTP 200 e o campo `erro` (string "true", não
+    // booleano), então o axios não lança e a detecção precisa ser feita aqui.
     if (data.erro !== undefined) {
       throw new CepProviderError(this.name, CepFailureType.NOT_FOUND);
     }
