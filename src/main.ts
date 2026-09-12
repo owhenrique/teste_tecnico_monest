@@ -1,27 +1,15 @@
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module.js';
-import { loadEnv } from './shared/env/env.js';
+import { envOf } from './shared/env/env.js';
+import { Env } from './shared/env/env.schema.js';
 import { setupApiDocs } from './shared/openapi/setup-api-docs.js';
 
-/**
- * O `.env` é opcional: em produção as variáveis vêm do ambiente, não de arquivo.
- * Ausência do arquivo é caso normal, então o erro de leitura é ignorado.
- */
-function readDotEnv(): void {
-  try {
-    process.loadEnvFile();
-  } catch {
-    return;
-  }
-}
-
 async function bootstrap(): Promise<void> {
-  readDotEnv();
-
-  const env = loadEnv(process.env);
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const env = envOf(app.get<ConfigService<Env, true>>(ConfigService));
   const logger = app.get(Logger);
 
   app.useLogger(logger);

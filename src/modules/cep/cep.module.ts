@@ -2,7 +2,10 @@ import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
-import { loadEnv } from '../../shared/env/env.js';
+import { ConfigService } from '@nestjs/config';
+
+import { envOf } from '../../shared/env/env.js';
+import { Env } from '../../shared/env/env.schema.js';
 import { BrasilApiAdapter } from './adapters/brasilapi.adapter.js';
 import { ViaCepAdapter } from './adapters/viacep.adapter.js';
 import { CepController } from './cep.controller.js';
@@ -14,7 +17,10 @@ import { ProviderRoundRobin } from './providers/provider-round-robin.js';
 @Module({
   imports: [
     HttpModule.registerAsync({
-      useFactory: () => ({ timeout: loadEnv(process.env).PROVIDER_TIMEOUT_MS }),
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) => ({
+        timeout: envOf(config).PROVIDER_TIMEOUT_MS,
+      }),
     }),
   ],
   controllers: [CepController],
@@ -31,8 +37,9 @@ import { ProviderRoundRobin } from './providers/provider-round-robin.js';
         viaCep: ViaCepAdapter,
         brasilApi: BrasilApiAdapter,
         logger: PinoLogger,
+        config: ConfigService<Env, true>,
       ): CepProvider[] => {
-        const env = loadEnv(process.env);
+        const env = envOf(config);
 
         return [viaCep, brasilApi].map(
           (provider) =>
@@ -44,7 +51,7 @@ import { ProviderRoundRobin } from './providers/provider-round-robin.js';
             ),
         );
       },
-      inject: [ViaCepAdapter, BrasilApiAdapter, PinoLogger],
+      inject: [ViaCepAdapter, BrasilApiAdapter, PinoLogger, ConfigService],
     },
   ],
 })

@@ -5,7 +5,6 @@ import { CepResponseDto } from '../dto/cep-response.dto.js';
 import { CepErrorCode } from '../enums/cep-error-code.enum.js';
 import { CEP_ERRORS } from '../errors/cep-error.dictionary.js';
 
-
 export const DOCUMENTED_ERROR_CODES: readonly CepErrorCode[] = Object.values(CepErrorCode);
 
 interface ErrorResponseOptions {

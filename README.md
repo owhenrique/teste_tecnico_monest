@@ -26,8 +26,8 @@ Fora de `development` as duas rotas não existem — a spec nem chega a ser gera
 
 ```bash
 npm install
-cp .env.example .env     # opcional; sem ele valem os defaults
-npm run start:dev        # http://localhost:3000 (ou $PORT)
+cp .env.example .env     # obrigatório: nenhuma variável tem default
+npm run start:dev        # http://localhost:3000
 ```
 
 ## Scripts
@@ -45,24 +45,27 @@ npm run start:dev        # http://localhost:3000 (ou $PORT)
 
 ## Configuração
 
-O `.env` é opcional e lido pelo próprio Node (`process.loadEnvFile`) na partida — em
-produção as variáveis vêm do ambiente. `.env.example` lista todas.
+**Todas as variáveis são obrigatórias** — nenhuma tem default. O `.env` é carregado pelo
+`@nestjs/config`; em container ele não existe e as variáveis vêm do ambiente. O que a
+aplicação exige são as *variáveis*, não o arquivo.
 
-| variável | default | descrição |
-| --- | --- | --- |
-| `PORT` | `3000` | porta HTTP; inteiro entre 1 e 65535 |
-| `NODE_ENV` | `development` | `development`, `test`, `staging` ou `production` |
-| `PROVIDER_TIMEOUT_MS` | `2500` | timeout de cada provedor; a request leva até 2× isso |
-| `CIRCUIT_FAILURE_THRESHOLD` | `3` | falhas consecutivas que abrem o circuito |
-| `CIRCUIT_RESET_MS` | `30000` | tempo que o circuito fica aberto |
-| `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug` ou `trace` |
+| variável | descrição |
+| --- | --- |
+| `PORT` | porta HTTP; inteiro entre 1 e 65535 |
+| `NODE_ENV` | `development`, `test`, `staging` ou `production` |
+| `PROVIDER_TIMEOUT_MS` | timeout de cada provedor; a request leva até 2× isso |
+| `CIRCUIT_FAILURE_THRESHOLD` | falhas consecutivas que abrem o circuito |
+| `CIRCUIT_RESET_MS` | tempo que o circuito fica aberto |
+| `LOG_LEVEL` | `fatal`, `error`, `warn`, `info`, `debug` ou `trace` |
 
-Todas são validadas por Zod na partida, em `src/shared/env/`. Configuração inválida
-**derruba a aplicação na hora**, nomeando a variável e o motivo:
+Todas são validadas por Zod na partida. Configuração ausente ou inválida **derruba a
+aplicação**, listando o que falta:
 
 ```
 Error: Variáveis de ambiente inválidas:
-  PORT: Invalid input: expected number, received NaN
+  NODE_ENV: Invalid option: expected one of "development"|"test"|"staging"|"production"
+  PROVIDER_TIMEOUT_MS: Invalid input: expected number, received NaN
+  LOG_LEVEL: Invalid option: expected one of "fatal"|"error"|"warn"|"info"|"debug"|"trace"
 ```
 
 É deliberado: melhor não subir do que subir com configuração quebrada e o erro aparecer

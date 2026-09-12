@@ -29,14 +29,22 @@ Expõe a classe `AppModule`, consumida por `main.ts` (produção) e pelos testes
 - **Bootstrap separado do módulo raiz** (`main.ts` × `app.module.ts`) — os testes e2e
   montam `AppModule` via `Test.createTestingModule` sem abrir socket. Descartado colocar
   `NestFactory.create` junto do módulo, que obrigaria o teste a subir um servidor HTTP real.
-- **Ambiente validado na partida, por Zod** — `loadEnv` roda antes de
-  `NestFactory.create` e lança se `PORT` ou `NODE_ENV` estiverem inválidas. Descartado ler
-  `process.env` direto onde precisa: o erro apareceria só quando aquele trecho rodasse, e
-  sem dizer qual variável estava errada. Schema e tipos em `src/shared/env/`.
-- **`.env` opcional, lido pelo Node** — `process.loadEnvFile()` em `main.ts`, com a
-  ausência do arquivo tratada como caso normal (em produção as variáveis vêm do
-  ambiente). Descartado `dotenv` e `@nestjs/config`: nenhum dos dois é necessário para
-  ler um arquivo e validar duas variáveis.
+- **`@nestjs/config` carrega e o Zod valida** — `ConfigModule.forRoot({ validate: loadEnv })`
+  roda na construção do `AppModule`, então variável ausente ou inválida derruba a aplicação
+  antes de ela escutar. Descartado ler `process.env` direto onde precisa: o erro apareceria
+  só quando aquele trecho rodasse, e sem dizer qual variável estava errada.
+- **Nenhuma variável tem default** — subir sem configuração é erro, não comportamento
+  silencioso. O preço é que todo deploy precisa definir as seis; o ganho é que "esqueci de
+  configurar" falha na partida, com a lista do que falta, em vez de virar surpresa em
+  produção.
+- **Falha a falta da *variável*, não do arquivo** — em container não existe `.env` e as
+  variáveis vêm do ambiente. Exigir o arquivo quebraria produção; exigir as variáveis
+  cobre os dois casos.
+- **`envFilePath: ['.env.<ambiente>', '.env']`** — permite um `.env` por ambiente sem
+  interferir no de desenvolvimento. O e2e não usa arquivo: recebe o ambiente pelo
+  `vitest.config.e2e.ts`, para não haver `.env` de teste em disco.
+- **`envOf(config)` explícito** — reconstrói o `Env` tipado a partir do `ConfigService`
+  campo a campo. Variável nova no schema sem leitura correspondente não compila.
 
 ## Arquivos
 

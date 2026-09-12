@@ -1,3 +1,5 @@
+import { ConfigService } from '@nestjs/config';
+
 import { type Env, envSchema } from './env.schema.js';
 
 export function loadEnv(source: NodeJS.ProcessEnv): Env {
@@ -12,4 +14,15 @@ export function loadEnv(source: NodeJS.ProcessEnv): Env {
   }
 
   return result.data;
+}
+
+export function envOf(config: ConfigService<Env, true>): Env {
+  return {
+    NODE_ENV: config.get('NODE_ENV', { infer: true }),
+    PORT: config.get('PORT', { infer: true }),
+    PROVIDER_TIMEOUT_MS: config.get('PROVIDER_TIMEOUT_MS', { infer: true }),
+    CIRCUIT_FAILURE_THRESHOLD: config.get('CIRCUIT_FAILURE_THRESHOLD', { infer: true }),
+    CIRCUIT_RESET_MS: config.get('CIRCUIT_RESET_MS', { infer: true }),
+    LOG_LEVEL: config.get('LOG_LEVEL', { infer: true }),
+  };
 }
