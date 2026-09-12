@@ -14,7 +14,6 @@ export function buildLoggerOptions(env: Env): Params {
       genReqId: buildRequestId,
       customLogLevel: (_request, response, error) => requestLogLevel(response.statusCode, error),
       autoLogging: {
-        // Navegador pede favicon em toda visita; é ruído, não tráfego de API.
         ignore: (request) => request.url === '/favicon.ico',
       },
       serializers: {

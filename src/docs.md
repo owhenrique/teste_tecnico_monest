@@ -17,6 +17,10 @@ Expõe a classe `AppModule`, consumida por `main.ts` (produção) e pelos testes
   `4xx` é `warn`, com `404` mantido em `info` de propósito: nesta API significa "CEP não
   existe", resposta correta a pergunta válida, e como `warn` encheria o alerta de ruído
   previsível.
+- **Documentação só em `development`** — `setupApiDocs` monta `/docs` e `/openapi.json`
+  apenas nesse ambiente; nos demais a spec sequer é gerada, então não há custo de partida
+  nem superfície exposta. Limitação aceita: `staging` também fica sem. Deixar aberto por
+  padrão é que não.
 - **`/favicon.ico` fora do log** — navegador pede em toda visita; é ruído, não tráfego.
 - **`ValidationPipe` como `APP_PIPE`, não `app.useGlobalPipes` no `main.ts`** — o
   `main.ts` não roda nos testes e2e, então a validação ficava desligada neles: o teste de

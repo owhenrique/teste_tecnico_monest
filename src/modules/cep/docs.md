@@ -67,6 +67,16 @@ adaptador, olhando o campo `erro` (a *string* `"true"`, não o booleano).
 9. `NOT_FOUND` não conta para o circuito; um sucesso zera o contador.
 10. Passado `CIRCUIT_RESET_MS`, o circuito fecha e o contador zera.
 
+## Documentação
+
+`ApiGetCep()` — decorator composto em `openapi/cep.openapi.ts` — carrega toda a metadata
+OpenAPI da rota, e o controller fica só com `@Get`. Os exemplos de erro são **derivados de
+`CEP_ERRORS`**: nenhum texto é digitado na documentação, então a spec não tem como divergir
+do que a API devolve.
+
+`DOCUMENTED_ERROR_CODES` sai de `Object.values(CepErrorCode)`, com teste garantindo a
+cobertura: código de erro novo entra na spec sozinho.
+
 ## Log
 
 Uma linha JSON por evento, correlacionada pelo `req.id` da requisição (`X-Request-Id` de
@@ -99,6 +109,13 @@ Toda consulta termina com **exatamente uma** linha de desfecho.
   dele. Sai só a linha de desfecho `CEP_NOT_FOUND`. Mesma regra que mantém `NOT_FOUND` fora
   da contagem do circuito; logar as duas rotularia como problema algo que é funcionamento
   normal, e inflaria qualquer alerta montado sobre `warn`.
+- **Exemplos da documentação derivados do dicionário** — `errorResponseOptions(code)` lê
+  status e mensagem de `CEP_ERRORS`. Descartado escrever os exemplos no decorator, que
+  duplicaria as quatro mensagens e as deixaria divergir em silêncio — e documentação errada
+  é pior que ausente, porque ninguém desconfia.
+- **`CepResponseDto implements Address`** — o `implements` faz o compilador reprovar
+  divergência entre contrato e schema documentado. Descartado declarar schema inline, que
+  nada verifica.
 - **Dicionário de erros, não uma classe por erro** — `CepException` é a única exceção de
   fronteira; `CepErrorCode` escolhe status e mensagem em `CEP_ERRORS`. Erro novo é uma
   linha, não um arquivo. Por ser `Record<CepErrorCode, …>`, código sem definição não
@@ -142,6 +159,7 @@ Toda consulta termina com **exatamente uma** linha de desfecho.
 | --- | --- |
 | `cep.service.ts` | valida, percorre a rotação, decide fallback × `404` × `504`/`503`, loga o desfecho |
 | `enums/cep-log-event.enum.ts` | eventos de log do módulo |
+| `openapi/cep.openapi.ts` | metadata OpenAPI da rota; exemplos vindos de `CEP_ERRORS` |
 | `providers/provider-round-robin.ts` | `order()` — rotação desta consulta, do primeiro ao último fallback |
 | `providers/circuit-breaker.provider.ts` | liga o `CircuitBreaker` de `shared/` à porta `CepProvider` |
 | `utils/provider-request.ts` | chamada HTTP comum aos provedores; traduz `AxiosError` em `CepFailureType` |

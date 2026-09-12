@@ -14,7 +14,6 @@ import { ProviderRoundRobin } from './providers/provider-round-robin.js';
 @Module({
   imports: [
     HttpModule.registerAsync({
-      // Lido aqui, e não no import do módulo, para o .env já ter sido carregado.
       useFactory: () => ({ timeout: loadEnv(process.env).PROVIDER_TIMEOUT_MS }),
     }),
   ],

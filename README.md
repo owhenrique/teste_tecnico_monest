@@ -11,7 +11,16 @@ Enunciado do teste: [DESAFIO.md](DESAFIO.md) · Convenções de desenvolvimento:
 
 ## Stack
 
-NestJS 12 (ESM) · TypeScript 6 · Axios (`@nestjs/axios`) · Zod · Pino · Vitest · oxlint · Prettier
+NestJS 12 (ESM) · TypeScript 6 · Axios (`@nestjs/axios`) · Zod · Pino · OpenAPI + Scalar ·
+Vitest · oxlint · Prettier
+
+## Documentação interativa
+
+Com a aplicação em `development`, a interface do Scalar fica em
+**http://localhost:3000/docs**, e a especificação OpenAPI em `/openapi.json`. Dá para
+disparar a rota pela própria página e ver o exemplo de corpo de cada um dos quatro erros.
+
+Fora de `development` as duas rotas não existem — a spec nem chega a ser gerada.
 
 ## Executando
 
