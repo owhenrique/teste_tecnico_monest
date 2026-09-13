@@ -70,7 +70,7 @@ src/modules/cep/
 
 | arquivo | papel |
 | --- | --- |
-| `cep.controller.ts` | rota `GET /cep/:cep` no método `get()`, delega ao service |
+| `cep.controller.ts` | rota `GET /cep/:cep` no método `getCep()`, delega ao service |
 | `cep.service.ts` | pede um provedor ao seletor e devolve o `Address` |
 | `dto/get-cep-params.dto.ts` | valida o parâmetro de rota via class-validator |
 | `provider-round-robin.ts` | decide qual provedor atende cada chamada |

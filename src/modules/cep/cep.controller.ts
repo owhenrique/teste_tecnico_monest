@@ -11,7 +11,7 @@ export class CepController {
 
   @Get(':cep')
   @ApiGetCep()
-  get(@Param() params: GetCepParamsDto): Promise<Address> {
+  getCep(@Param() params: GetCepParamsDto): Promise<Address> {
     return this.cepService.findOne(params.cep);
   }
 }

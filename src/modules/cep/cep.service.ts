@@ -75,7 +75,7 @@ export class CepService {
       }
     }
 
-    const resumo = failures.map(({ provider, failure }) => ({ provider, failure }));
+    const failuresSummary = failures.map(({ provider, failure }) => ({ provider, failure }));
     const durationMs = Date.now() - lookupStartedAt;
     const code =
       failures.length > 1 ? CepErrorCode.ALL_PROVIDERS_FAILED : CepErrorCode.PROVIDER_UNAVAILABLE;
@@ -84,7 +84,7 @@ export class CepService {
       event: CepLogEvent.LOOKUP_EXHAUSTED,
       cep,
       durationMs,
-      failures: resumo,
+      failures: failuresSummary,
     });
 
     // Issue própria: as falhas por provedor já viraram `warning`, mas devolver erro ao
@@ -93,7 +93,7 @@ export class CepService {
       level: IssueLevel.ERROR,
       message: `consulta de CEP falhou: ${code}`,
       fingerprint: [code],
-      context: { cep, durationMs, failures: resumo },
+      context: { cep, durationMs, failures: failuresSummary },
     });
 
     throw new CepException(code);
