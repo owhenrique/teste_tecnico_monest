@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/node';
 import type { NodeOptions } from '@sentry/node';
 
 import { Issue } from './issue-reporter.interface.js';
+import { sanitizeEvent } from './sanitize-event.js';
 
 interface SentrySetup {
   dsn: string | undefined;
@@ -18,7 +19,27 @@ export function setupSentry({ dsn, environment, beforeSend }: SentrySetup): void
     return;
   }
 
-  Sentry.init({ dsn, environment, beforeSend });
+  Sentry.init({
+    dsn,
+    environment,
+    sendDefaultPii: false,
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: { request: false, response: false },
+      httpBodies: [],
+      urlQueryParams: false,
+      databaseQueryData: false,
+      genAI: { inputs: false, outputs: false },
+      graphQL: { document: false, variables: false },
+      stackFrameVariables: false,
+    },
+    beforeSend: (event, hint) => {
+      const clean = sanitizeEvent(event);
+
+      return beforeSend ? beforeSend(clean, hint) : clean;
+    },
+  });
 }
 
 export function isSentryEnabled(): boolean {

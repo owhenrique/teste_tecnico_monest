@@ -338,3 +338,10 @@ falha total produziram ~28 eventos e **5 issues**:
 | `brasilapi: circuito aberto` | `error` | 1 |
 
 O fingerprint entrega o que o plano prometia: repetição vira contador, não issue nova.
+
+## Defeitos encontrados depois — já corrigidos
+
+1. **Cookies e headers vazavam**, incluindo `Authorization`. A premissa "sem
+   `sendDefaultPii`, não sai PII" é falsa para cookies no `@sentry/node` 10.
+2. **O `requestId` nunca foi enviado**, apesar de este plano e o README afirmarem o contrário.
+   Os testes não exigiam o campo, então nada falhou.

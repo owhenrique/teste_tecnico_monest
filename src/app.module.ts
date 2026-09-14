@@ -1,4 +1,4 @@
-import { Module, ValidationPipe } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, ValidationPipe } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_PIPE } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
@@ -7,6 +7,7 @@ import { CepModule } from './modules/cep/cep.module.js';
 import { envOf, loadEnv } from './shared/env/env.js';
 import { Env } from './shared/env/env.schema.js';
 import { buildLoggerOptions } from './shared/logger/logger.options.js';
+import { SentryRequestIdMiddleware } from './shared/sentry/sentry-request-id.middleware.js';
 
 @Module({
   imports: [
@@ -29,4 +30,8 @@ import { buildLoggerOptions } from './shared/logger/logger.options.js';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(SentryRequestIdMiddleware).forRoutes('*');
+  }
+}

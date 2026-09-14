@@ -113,7 +113,17 @@ esconde a quebra; uma rajada de timeouts não é um erro, é um incidente.
 | CEP inexistente ou formato inválido | **não** | — |
 
 Agrupamento por `[provedor, falha]`: mil timeouts viram **uma** issue com mil eventos, e o
-contador é a métrica. Todo evento leva o `requestId`, ligando a issue à sequência de log.
+contador é a métrica.
+
+Cada evento traz:
+
+- a tag **`request_id`** — filtre por ela na interface e ache a mesma sequência no log pelo
+  `req.id`;
+- método e URL da requisição, e um **`curl` pronto** em *Contexts → reproduce* para
+  reexecutar a consulta.
+
+Nada de sensível sai: cookies, headers, corpo, IP, query string e variáveis locais da pilha
+são removidos antes do envio.
 
 ```bash
 docker compose -f docker-compose.glitchtip.yml up -d   # http://localhost:8989

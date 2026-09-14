@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { IssueLevel } from './issue-level.enum.js';
@@ -73,6 +74,26 @@ describe('reportIssue', () => {
       failure: 'TIMEOUT',
       requestId: 'req-1',
       durationMs: 2501,
+    });
+  });
+
+  it('resolve a coleta com tudo que é sensível desligado', () => {
+    ligarSentry();
+
+    // Lido do cliente já resolvido: pega a armadilha de um dataCollection parcial herdar
+    // DEFAULTS, onde tudo é true.
+    const coleta = Sentry.getClient()?.getDataCollectionOptions();
+
+    expect(coleta).toMatchObject({
+      userInfo: false,
+      cookies: false,
+      httpHeaders: { request: false, response: false },
+      httpBodies: [],
+      urlQueryParams: false,
+      databaseQueryData: false,
+      genAI: { inputs: false, outputs: false },
+      graphQL: { document: false, variables: false },
+      stackFrameVariables: false,
     });
   });
 });
