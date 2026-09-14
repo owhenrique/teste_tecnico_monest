@@ -11,7 +11,7 @@ Enunciado do teste: [DESAFIO.md](DESAFIO.md) · Convenções de desenvolvimento:
 
 ## Instalação e como rodar
 
-Requer **Node 24+** (o projeto usa `process.loadEnvFile` e ESM).
+Requer **Node 22.12+ ou 24+**.
 
 ```bash
 npm install
